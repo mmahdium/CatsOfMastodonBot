@@ -13,6 +13,8 @@ public class PeriodicFetchService(
     AppConfig config)
     : BackgroundService
 {
+    public static bool PostCollectionPaused { get; set; } = false;
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         logger.LogInformation("Starting the background job.");
@@ -28,6 +30,12 @@ public class PeriodicFetchService(
         var firstRun = true;
         while (firstRun || await timer.WaitForNextTickAsync(stoppingToken))
         {
+            if (PostCollectionPaused)
+            {
+                logger.LogInformation("Post collection is paused, skipping fetch.");
+                continue;
+            }
+
             logger.LogInformation("Fetching posts from mastodon");
             var posts = await mastodonService.FetchCatPostsAsync(config.PostsPerRequest);
             logger.LogInformation("Fetched {count} posts", posts.Count);

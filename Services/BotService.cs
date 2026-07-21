@@ -67,6 +67,22 @@ public class BotService
 
             _logger.LogInformation("Sent dangling post to admin.");
         }
+        else if (message.Text is not null && message.Chat.Id.ToString() == _config.AdminNumericId &&
+                 message.Text.Contains("/pause"))
+
+        {
+            PeriodicFetchService.PostCollectionPaused = true;
+            await _botClient.SendMessage(_config.AdminNumericId, "Collection paused.");
+            _logger.LogInformation("Pausing post collection.");
+        }
+        else if (message.Text is not null && message.Chat.Id.ToString() == _config.AdminNumericId &&
+                 message.Text.Contains("/resume"))
+
+        {
+            PeriodicFetchService.PostCollectionPaused = false;
+            await _botClient.SendMessage(_config.AdminNumericId, "Collection resumed.");
+            _logger.LogInformation("Resuming post collection.");
+        }
         else
         {
             await _botClient.SendMessage(message.Chat.Id, "See you here!🐈\n@catsofmastodon");
