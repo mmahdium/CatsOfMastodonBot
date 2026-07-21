@@ -83,6 +83,16 @@ public class BotService
             await _botClient.SendMessage(_config.AdminNumericId, "Collection resumed.");
             _logger.LogInformation("Resuming post collection.");
         }
+
+        else if (message.Text is not null && message.Chat.Id.ToString() == _config.AdminNumericId &&
+                 message.Text.Contains("/cleanup"))
+        {
+            await _botClient.SendMessage(_config.AdminNumericId,
+                "Are you sure you want to cleanup stale media attachments and orphan posts and accounts?",
+                replyMarkup: new InlineKeyboardMarkup().AddButtons(
+                    InlineKeyboardButton.WithCallbackData("Yes", "cleanup_confirm"),
+                    InlineKeyboardButton.WithCallbackData("No", "cleanup_cancel")));
+        }
         else
         {
             await _botClient.SendMessage(message.Chat.Id, "See you here!🐈\n@catsofmastodon");
@@ -98,9 +108,11 @@ public class BotService
         {
             case { CallbackQuery: { } callbackQuery }:
             {
-                if (callbackQuery.Data == null || callbackQuery.Message == null)
+                if (callbackQuery.Data == null || callbackQuery.Message == null ||
+                    callbackQuery.Message.Chat.Id.ToString() != _config.AdminNumericId)
                 {
-                    _logger.LogError($"Received null callback query data or message{callbackQuery.Data}");
+                    _logger.LogError(
+                        $"Received null callback query data or message {callbackQuery.Data} - or message is not from admin");
                 }
 
                 // Approve or reject a post
@@ -168,6 +180,23 @@ public class BotService
                     break;
                 }*/
 
+                else if (callbackQuery.Data.Contains("cleanup_"))
+                {
+                    if (callbackQuery.Data == "cleanup_confirm")
+                    {
+                        var deletedEntities = await _mediaAttachmentRepository.CleanupStaleWithOrphansAsync();
+                        await _botClient.AnswerCallbackQuery(callbackQuery.Id,
+                            "Deleted " + deletedEntities + " entities.");
+                        await _botClient.DeleteMessage(callbackQuery.Message.Chat.Id, callbackQuery.Message.Id);
+                    }
+
+                    if (callbackQuery.Data == "cleanup_cancel")
+                    {
+                        await _botClient.AnswerCallbackQuery(callbackQuery.Id, "Cleanup cancelled.");
+                        await _botClient.DeleteMessage(callbackQuery.Message.Chat.Id,
+                            callbackQuery.Message.Id); // TODO: improve error handling
+                    }
+                }
                 else
                 {
                     _logger.LogError($"Received unhandled callback query {callbackQuery.Data}");
